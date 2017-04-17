@@ -7,5 +7,5 @@ cpus=$((mat1*mat2))
 echo $cpus
  
 mpic++ --prefix /usr/local/share/OpenMPI -o mm mm.cpp -std=c++0x
-mpirun --prefix /usr/local/share/OpenMPI -np $cpus mm
+mpirun --prefix /usr/local/share/OpenMPI -np $(($cpus+1)) mm
 rm -f mm
