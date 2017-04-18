@@ -15,6 +15,8 @@ if [ ! -f $m2 ]; then
 	exit
 fi
 
+#TODO - ověřit správnost matic v bashi!!!
+	
 mat1=$(head -n1 mat1)
 mat2=$(head -n1 mat2)
 	
