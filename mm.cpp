@@ -134,6 +134,10 @@ int main(int argc, char *argv[])
 	ifstream mat1("mat1");
 	ifstream mat2("mat2");
 	
+	
+	int prvekB = 0;
+	int prvekA = 0;
+	
 	matrix->matN = atoi(argv[1]);
 
     string fLine;
@@ -154,6 +158,9 @@ int main(int argc, char *argv[])
 		tmpR = loadInput(matrix,&inputA,&mat1);
 		tmpC = loadInput(matrix,&inputB,&mat2);	
 		
+		cerr<<"tmP: "<<tmpR<<":"<<tmpC<<endl;
+		cerr<<"matN: "<<matrix->cols<<endl;
+		
 //		if(tmpR != tmpC){
 //			cerr<<"Matice mají neplatnou velikost!"<<endl;
 //			exit(EXIT_FAILURE);
@@ -165,37 +172,40 @@ int main(int argc, char *argv[])
 		{
 			// Posílání prvnímu řádku mrížky
 			if(send <= matrix->cols){
-				for(int i = 0; i < tmpC; i++)
+				for(int i = 0; i < matrix->matN; i++)
 				{
 					valB = inputB.matrix[i][(send-1)];
-//					cerr<<"valB: "<<valB<<endl;
+					prvekB++;
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, send, TAG_B, MPI_COMM_WORLD);
 				}
 			}
 			// Posílání prvnímu sloupci mrížky
 			if(send % matrix->cols == 1 || (matrix->cols == 1) || (send == 1)){
-				for(int i = 0; i < tmpC; i++)
+				for(int i = 0; i < matrix->matN; i++)
 				{
 					
 //					cerr<<"sA: "<<valA<<endl;
-					cerr<<"valA: "<<inputA.matrix[(send/matrix->cols)][i]<<endl;
+//					cerr<<"valA: "<<inputA.matrix[(send/matrix->cols)][i]<<endl;
 					if(matrix->cols == 1)
 						valA = inputA.matrix[(send-1)][i];
 					else
 						valA = inputA.matrix[(send/matrix->cols)][i];
+					prvekA++;
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, send, TAG_A, MPI_COMM_WORLD);
 
 				}
 			}			
 		}
 		
-//		cerr<<"odesláno"<<endl;
+		cerr<<"odesláno A:"<<prvekA<<" a B:"<<prvekB<<endl;
 		
 		for(int recv = 1; recv < matrix->processCount;recv++)
 		{
 			MPI_Recv(&tmpC, BUFF_SIZE, MPI_INT, recv, TAG, MPI_COMM_WORLD, &stat);
 			outputMatrix[recv-1] = tmpC; 
+			cerr<<"recv-1: "<<recv-1<<endl;
 		}
+		cerr<<"Matice došla"<<endl;
 		
 		// Výpis matice
 		cout<<matrix->rows<<":"<<matrix->cols<<endl;
@@ -231,34 +241,32 @@ int main(int argc, char *argv[])
 				MPI_Recv(&valA, BUFF_SIZE, MPI_INT, matrix->procID-1, TAG_A, MPI_COMM_WORLD, &stat);
 				
 				matrix->C += valA * valB;
-				cerr<<"A: "<<valA<<"|B: "<<valB<<"|C: "<<matrix->C<<endl;
-//				cerr<<"IDerr: "<<matrix->procID<<endl;
 				if((matrix->procID+1) % matrix->cols != 1 && matrix->cols != 1){
-					cerr<<"Pc: "<<matrix->procID<<" sendTo: "<<matrix->procID+1<<endl;
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, matrix->procID+1, TAG_A, MPI_COMM_WORLD);
 				}
-				if(matrix->procID + matrix->cols < matrix->processCount)
+				if((matrix->procID + matrix->cols) < matrix->processCount){
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, matrix->procID+matrix->cols, TAG_B, MPI_COMM_WORLD);
-//				cerr<<"IDok: "<<matrix->procID<<endl;
+				}
+					
 			}
+			cerr<<"Posílám C: "<<matrix->procID<<endl;
 			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);
 		}
 		// Posílání prvnímu sloupci mrížky
-		else if(matrix->procID % matrix->cols == 1 && matrix->procID != 1){
+		else if((matrix->procID % matrix->cols == 1 && matrix->procID != 1) || matrix->cols == 1){
 			for(int i = 0; i < matrix->matN; i++)
 			{
 				MPI_Recv(&valB, BUFF_SIZE, MPI_INT, matrix->procID-matrix->cols, TAG_B, MPI_COMM_WORLD, &stat);
 				MPI_Recv(&valA, BUFF_SIZE, MPI_INT, 0, TAG_A, MPI_COMM_WORLD, &stat);
 				
 				matrix->C += valA * valB;
-//				cerr<<"IDerr: "<<matrix->procID<<endl;
+
 				if(matrix->cols != 1)
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, matrix->procID+1, TAG_A, MPI_COMM_WORLD);
 				if(matrix->procID + matrix->cols < matrix->processCount){
-//					cerr<<"Pr: "<<matrix->procID<<" sendTo: "<<matrix->procID+matrix->cols<<endl;
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, matrix->procID+matrix->cols, TAG_B, MPI_COMM_WORLD);
+
 				}
-//				cerr<<"IDok: "<<matrix->procID<<endl;
 			}
 			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);
 		}
@@ -270,16 +278,12 @@ int main(int argc, char *argv[])
 				MPI_Recv(&valA, BUFF_SIZE, MPI_INT, matrix->procID-1, TAG_A, MPI_COMM_WORLD, &stat);
 				
 				matrix->C += valA * valB;
-//				cerr<<"IDerr: "<<matrix->procID<<" + test: "<<matrix->procID % matrix->cols<<endl;
 				if((matrix->procID+1) % matrix->cols != 1 && matrix->cols != 1){
-//					cerr<<"P: "<<matrix->procID<<" sendTo: "<<matrix->procID+1<<endl;
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, matrix->procID+1, TAG_A, MPI_COMM_WORLD);
 				}
 				if(matrix->procID + matrix->cols < matrix->processCount){
-//					cerr<<"P: "<<matrix->procID<<" sendTo: "<<matrix->procID+matrix->cols<<endl;
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, matrix->procID+matrix->cols, TAG_B, MPI_COMM_WORLD);
 				}
-//				cerr<<"IDok: "<<matrix->procID<<endl;
 			}
 			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);			
 		}
