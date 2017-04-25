@@ -41,6 +41,7 @@ typedef struct{
 	int **matrix;
 } T_MATRIX;
 
+// Funkce pro ověření číselnosti zadaného řetězce
 bool isNumber(string s)
 {
 	char * p ;
@@ -49,6 +50,8 @@ bool isNumber(string s)
 	return (*p == 0) ;
 }
 
+// Načtení vstupní matice na základě ukaaztele na soubor
+// Vrací počet načtených řádků
 int loadInput(T_PROCESOR *mat, T_MATRIX *matrix, ifstream *file){
 	string line;
 	int rows = 0;
@@ -100,6 +103,7 @@ int loadInput(T_PROCESOR *mat, T_MATRIX *matrix, ifstream *file){
 	return rows;
 }
 
+// Pomocná funkce pro výpis matice
 void printMatrix(T_MATRIX matrix, int rows, int cols)
 {
 	cerr<<"Vypisuji matici:"<<endl;
@@ -111,7 +115,8 @@ void printMatrix(T_MATRIX matrix, int rows, int cols)
 	}
 }
 
-void disposeMatrix(T_MATRIX *matrix, int rows, int cols)
+// Funkc epro úklid matice
+void disposeMatrix(T_MATRIX *matrix, int rows)
 {
 	for(int i = 0; i < rows; i++)
 	{
@@ -135,15 +140,15 @@ int main(int argc, char *argv[])
 	
 	int prvekB = 0;
 	int prvekA = 0;
-	
-//	matrix->matN = atoi(argv[1]);
 
+	// Získání velikosti výsledné matice
     string fLine;
     getline(mat1, fLine);
 	matrix->rows = atoi(fLine.c_str());
 	getline(mat2, fLine);
 	matrix->cols = atoi(fLine.c_str());
 		
+	// Řídící procesor
 	if(matrix->procID == 0){
 		int valA;
 		int valB;
@@ -177,9 +182,6 @@ int main(int argc, char *argv[])
 			if(send % matrix->cols == 1 || (matrix->cols == 1) || (send == 1)){
 				for(int i = 0; i < matrix->matN; i++)
 				{
-					
-//					cerr<<"sA: "<<valA<<endl;
-//					cerr<<"valA: "<<inputA.matrix[(send/matrix->cols)][i]<<endl;
 					if(matrix->cols == 1)
 						valA = inputA.matrix[(send-1)][i];
 					else
@@ -191,7 +193,7 @@ int main(int argc, char *argv[])
 			}			
 		}
 		
-		
+		// Přijímání výsledné matice
 		for(int recv = 1; recv < matrix->processCount;recv++)
 		{
 			MPI_Recv(&valA, BUFF_SIZE, MPI_INT, recv, TAG, MPI_COMM_WORLD, &stat);
@@ -218,20 +220,27 @@ int main(int argc, char *argv[])
 			printf("MPI_Wtime(): %1.9f ms\n", (time2-time1)*1000);
 			fflush(stdout);
 		}
+		
+		// Úklid
+		disposeMatrix(&inputB, matrix->matN);
+		disposeMatrix(&inputA, matrix->rows);
 	}
 	else{
 		int valA;
 		int valB;
+		// Přijmutí informace o počtu cyklů (velikost společná)
 		MPI_Recv(&matrix->matN, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
-//		cout<<"Není to první procesor"<<endl;
+		
 		// Posílání prvnímu řádku mrížky
 		if(matrix->procID <= matrix->cols){
 			for(int i = 0; i < matrix->matN; i++)
 			{
+				// Přijetí prvků
 				MPI_Recv(&valB, BUFF_SIZE, MPI_INT, 0, TAG_B, MPI_COMM_WORLD, &stat);
 				MPI_Recv(&valA, BUFF_SIZE, MPI_INT, matrix->procID-1, TAG_A, MPI_COMM_WORLD, &stat);
-				
+				// Výpočet
 				matrix->C += valA * valB;
+				// Odeslání sousedním procesorům (pokud existují)
 				if((matrix->procID+1) % matrix->cols != 1 && matrix->cols != 1){
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, matrix->procID+1, TAG_A, MPI_COMM_WORLD);
 				}
@@ -240,17 +249,19 @@ int main(int argc, char *argv[])
 				}
 					
 			}
+			// Odeslání výsledné hodnoty
 			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);
 		}
 		// Posílání prvnímu sloupci mrížky
 		else if((matrix->procID % matrix->cols == 1 && matrix->procID != 1) || matrix->cols == 1){
 			for(int i = 0; i < matrix->matN; i++)
 			{
+				// Přijetí prvků
 				MPI_Recv(&valB, BUFF_SIZE, MPI_INT, matrix->procID-matrix->cols, TAG_B, MPI_COMM_WORLD, &stat);
 				MPI_Recv(&valA, BUFF_SIZE, MPI_INT, 0, TAG_A, MPI_COMM_WORLD, &stat);
-				
+				// Výpočet
 				matrix->C += valA * valB;
-
+				// Odeslání sousedním procesorům (pokud existují)
 				if(matrix->cols != 1)
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, matrix->procID+1, TAG_A, MPI_COMM_WORLD);
 				if(matrix->procID + matrix->cols < matrix->processCount){
@@ -258,16 +269,20 @@ int main(int argc, char *argv[])
 
 				}
 			}
+			// Odeslání výsledné hodnoty
 			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);
 		}
+		// Ostatní procesory
 		else
 		{
 			for(int i = 0; i < matrix->matN; i++)
 			{
+				// Přijetí prvků
 				MPI_Recv(&valB, BUFF_SIZE, MPI_INT, matrix->procID-matrix->cols, TAG_B, MPI_COMM_WORLD, &stat);
 				MPI_Recv(&valA, BUFF_SIZE, MPI_INT, matrix->procID-1, TAG_A, MPI_COMM_WORLD, &stat);
-				
+				// Výpočet
 				matrix->C += valA * valB;
+				// Odeslání sousedním procesorům (pokud existují)
 				if((matrix->procID+1) % matrix->cols != 1 && matrix->cols != 1){
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, matrix->procID+1, TAG_A, MPI_COMM_WORLD);
 				}
@@ -275,6 +290,7 @@ int main(int argc, char *argv[])
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, matrix->procID+matrix->cols, TAG_B, MPI_COMM_WORLD);
 				}
 			}
+			// Odeslání výsledné hodnoty
 			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);			
 		}
 	}
