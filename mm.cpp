@@ -21,7 +21,7 @@
 using namespace std;
 
 MPI_Status stat;
-bool analyzis = true;
+bool analyzis = false;
 
 #define BUFF_SIZE 1
 #define TAG 0
@@ -97,10 +97,7 @@ int loadInput(T_PROCESOR *mat, T_MATRIX *matrix, ifstream *file){
 		tmpR++;
 	}
 	
-	if(rows != mat->rows)
-		return rows;
-	else
-		return cols;
+	return rows;
 }
 
 void printMatrix(T_MATRIX matrix, int rows, int cols)
@@ -139,7 +136,7 @@ int main(int argc, char *argv[])
 	int prvekB = 0;
 	int prvekA = 0;
 	
-	matrix->matN = atoi(argv[1]);
+//	matrix->matN = atoi(argv[1]);
 
     string fLine;
     getline(mat1, fLine);
@@ -159,13 +156,14 @@ int main(int argc, char *argv[])
 		T_MATRIX inputA, inputB;
 		// Načtení vstupních matic
 		loadInput(matrix,&inputA,&mat1);
-		loadInput(matrix,&inputB,&mat2);	
+		matrix->matN = loadInput(matrix,&inputB,&mat2);	
 		
 		// Začátek měření
 		time1 = MPI_Wtime();		
 
 		for(int send = 1; send < matrix->processCount; send++)
 		{
+			MPI_Send(&matrix->matN, BUFF_SIZE, MPI_INT,send,TAG, MPI_COMM_WORLD);
 			// Posílání prvnímu řádku mrížky
 			if(send <= matrix->cols){
 				for(int i = 0; i < matrix->matN; i++)
@@ -224,6 +222,7 @@ int main(int argc, char *argv[])
 	else{
 		int valA;
 		int valB;
+		MPI_Recv(&matrix->matN, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
 //		cout<<"Není to první procesor"<<endl;
 		// Posílání prvnímu řádku mrížky
 		if(matrix->procID <= matrix->cols){

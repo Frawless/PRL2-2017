@@ -47,5 +47,5 @@ fi;
 cpus=$((mat1*mat2))
 
 mpic++ --prefix /usr/local/share/OpenMPI -o mm mm.cpp -std=c++0x
-mpirun --prefix /usr/local/share/OpenMPI -np $(($cpus+1)) mm $n
+mpirun --prefix /usr/local/share/OpenMPI -np $(($cpus+1)) mm
 rm -f mm
