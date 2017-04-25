@@ -21,6 +21,7 @@
 using namespace std;
 
 MPI_Status stat;
+bool analyzis = true;
 
 #define BUFF_SIZE 1
 #define TAG 0
@@ -147,27 +148,22 @@ int main(int argc, char *argv[])
 	matrix->cols = atoi(fLine.c_str());
 		
 	if(matrix->procID == 0){
-		int tmpR;
-		int tmpC;
 		int valA;
 		int valB;
 		int outputMatrix[matrix->cols*matrix->cols];
+		
+		// Analýza času
+		double time1, time2;		
+		
 		// Vytvoření vstupních matic
 		T_MATRIX inputA, inputB;
 		// Načtení vstupních matic
-		tmpR = loadInput(matrix,&inputA,&mat1);
-		tmpC = loadInput(matrix,&inputB,&mat2);	
+		loadInput(matrix,&inputA,&mat1);
+		loadInput(matrix,&inputB,&mat2);	
 		
-		cerr<<"tmP: "<<tmpR<<":"<<tmpC<<endl;
-		cerr<<"matN: "<<matrix->cols<<endl;
-		
-//		if(tmpR != tmpC){
-//			cerr<<"Matice mají neplatnou velikost!"<<endl;
-//			exit(EXIT_FAILURE);
-//		}
-		
-//		cerr<<"Počet procesorů: "<<matrix->processCount<<endl;
-		
+		// Začátek měření
+		time1 = MPI_Wtime();		
+
 		for(int send = 1; send < matrix->processCount; send++)
 		{
 			// Posílání prvnímu řádku mrížky
@@ -197,37 +193,33 @@ int main(int argc, char *argv[])
 			}			
 		}
 		
-		cerr<<"odesláno A:"<<prvekA<<" a B:"<<prvekB<<endl;
 		
 		for(int recv = 1; recv < matrix->processCount;recv++)
 		{
-			MPI_Recv(&tmpC, BUFF_SIZE, MPI_INT, recv, TAG, MPI_COMM_WORLD, &stat);
-			outputMatrix[recv-1] = tmpC; 
-			cerr<<"recv-1: "<<recv-1<<endl;
+			MPI_Recv(&valA, BUFF_SIZE, MPI_INT, recv, TAG, MPI_COMM_WORLD, &stat);
+			outputMatrix[recv-1] = valA; 
 		}
-		cerr<<"Matice došla"<<endl;
+		// Konec spuštění procesoru
+		time2 = MPI_Wtime();
 		
-		// Výpis matice
-		cout<<matrix->rows<<":"<<matrix->cols<<endl;
-		for(tmpR = 0; tmpR < matrix->processCount-1; tmpR++)
+		if(!analyzis)
 		{
-			cout<<outputMatrix[tmpR];
-			if((tmpR+1)%matrix->cols == 0)
-				cout<<endl;
-			else
-				cout<<" ";
+			// Výpis matice
+			cout<<matrix->rows<<":"<<matrix->cols<<endl;
+			for(int r = 0; r < matrix->processCount-1; r++)
+			{
+				cout<<outputMatrix[r];
+				if((r+1)%matrix->cols == 0)
+					cout<<endl;
+				else
+					cout<<" ";
+			}		
 		}
-
-		
-//		cout<<"Počet procesorů: "<<matrix->processCount<<endl;
-//		cout<<"Matice: "<<matrix->rows<<"x"<<matrix->cols<<endl;
-		
-		
-		
-//		printMatrix(inputA,matrix->rows,tmpC);
-		
-//		disposeMatrix(&inputA,matrix->rows,tmpC);
-//		disposeMatrix(&inputB,matrix->rows,tmpC);
+		else
+		{
+			printf("MPI_Wtime(): %1.9f ms\n", (time2-time1)*1000);
+			fflush(stdout);
+		}
 	}
 	else{
 		int valA;
@@ -249,7 +241,6 @@ int main(int argc, char *argv[])
 				}
 					
 			}
-			cerr<<"Posílám C: "<<matrix->procID<<endl;
 			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);
 		}
 		// Posílání prvnímu sloupci mrížky

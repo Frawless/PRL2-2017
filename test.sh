@@ -15,16 +15,29 @@ if [ ! -f $m2 ]; then
 	exit
 fi
 
-#TODO - ověřit správnost matic v bashi!!!
-	
+# Získání prvního řádku souboru 
 mat1=$(head -n1 mat1)
 mat2=$(head -n1 mat2)
 	
+# Získání počtu řádků pro ověření velikostí
 mat1r=$(cat $m1 | wc -l)
 mat1r=$((mat1r-1))
 mat2r=$(cat $m2 | wc -l)
 mat2r=$((mat2r-1))
-	
+
+# Zísání počtu sloupců pro ověření velikostí
+mat1c=$(tail -n 1 $m1 | tr -cd ' \t' | wc -c)
+mat1c=$(($mat1c+1))
+mat2c=$(tail -n 1 $m2 | tr -cd ' \t' | wc -c)
+mat2c=$(($mat2c+1))
+
+# Ověření velikosti
+if [ $mat1c -ne $mat2r ] || [ $mat1r -ne $mat1 ] || [ $mat2c -ne $mat2 ]; then
+	echo "Matice mají špatné velikosti!"
+	exit
+fi	
+
+# Stanovení hodnoty společné velikosti
 if [ $mat1r -ne $mat1 ]; then
 	n=$mat1r;
 else
