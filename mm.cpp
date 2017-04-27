@@ -27,6 +27,8 @@ bool analyzis = false;
 #define TAG 0
 #define TAG_A 1
 #define TAG_B 2
+#define TAG_SIZE 3
+#define TAG_DON 4
 
 typedef struct{
 	int processCount;
@@ -137,22 +139,19 @@ int main(int argc, char *argv[])
 	ifstream mat1("mat1");
 	ifstream mat2("mat2");
 	
-	
-	int prvekB = 0;
-	int prvekA = 0;
-
-	// Získání velikosti výsledné matice
-    string fLine;
-    getline(mat1, fLine);
-	matrix->rows = atoi(fLine.c_str());
-	getline(mat2, fLine);
-	matrix->cols = atoi(fLine.c_str());
-		
 	// Řídící procesor
 	if(matrix->procID == 0){
 		int valA;
 		int valB;
-		int outputMatrix[matrix->cols*matrix->cols];
+		int recv;
+		int outputMatrix[matrix->processCount-1];
+		
+		// Získání velikosti výsledné matice
+		string fLine;
+		getline(mat1, fLine);
+		matrix->rows = atoi(fLine.c_str());
+		getline(mat2, fLine);
+		matrix->cols = atoi(fLine.c_str());		
 		
 		// Analýza času
 		double time1, time2;		
@@ -168,13 +167,13 @@ int main(int argc, char *argv[])
 
 		for(int send = 1; send < matrix->processCount; send++)
 		{
-			MPI_Send(&matrix->matN, BUFF_SIZE, MPI_INT,send,TAG, MPI_COMM_WORLD);
+			MPI_Send(&(matrix->matN), BUFF_SIZE, MPI_INT,send,TAG, MPI_COMM_WORLD);
+			MPI_Send(&(matrix->cols), BUFF_SIZE, MPI_INT,send,TAG_SIZE, MPI_COMM_WORLD);
 			// Posílání prvnímu řádku mrížky
 			if(send <= matrix->cols){
 				for(int i = 0; i < matrix->matN; i++)
 				{
 					valB = inputB.matrix[i][(send-1)];
-					prvekB++;
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, send, TAG_B, MPI_COMM_WORLD);
 				}
 			}
@@ -186,25 +185,24 @@ int main(int argc, char *argv[])
 						valA = inputA.matrix[(send-1)][i];
 					else
 						valA = inputA.matrix[(send/matrix->cols)][i];
-					prvekA++;
 					MPI_Send(&valA, BUFF_SIZE, MPI_INT, send, TAG_A, MPI_COMM_WORLD);
-
 				}
 			}			
 		}
 		
 		// Přijímání výsledné matice
-		for(int recv = 1; recv < matrix->processCount;recv++)
+//		cout<<matrix->rows<<":"<<matrix->cols<<endl;
+		for(recv = 1; recv < matrix->processCount;recv++)
 		{
-			MPI_Recv(&valA, BUFF_SIZE, MPI_INT, recv, TAG, MPI_COMM_WORLD, &stat);
+			MPI_Recv(&valA, BUFF_SIZE, MPI_INT, recv, TAG_DON, MPI_COMM_WORLD, &stat);
 			outputMatrix[recv-1] = valA; 
-		}
+		} 
 		// Konec spuštění procesoru
 		time2 = MPI_Wtime();
 		
 		if(!analyzis)
 		{
-			// Výpis matice
+//			 Výpis matice
 			cout<<matrix->rows<<":"<<matrix->cols<<endl;
 			for(int r = 0; r < matrix->processCount-1; r++)
 			{
@@ -229,7 +227,10 @@ int main(int argc, char *argv[])
 		int valA;
 		int valB;
 		// Přijmutí informace o počtu cyklů (velikost společná)
-		MPI_Recv(&matrix->matN, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
+		MPI_Recv(&(matrix->matN), BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD, &stat);
+		MPI_Recv(&valA, BUFF_SIZE, MPI_INT, 0, TAG_SIZE, MPI_COMM_WORLD, &stat);
+		
+		matrix->cols = valA;
 		
 		// Posílání prvnímu řádku mrížky
 		if(matrix->procID <= matrix->cols){
@@ -247,10 +248,7 @@ int main(int argc, char *argv[])
 				if((matrix->procID + matrix->cols) < matrix->processCount){
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, matrix->procID+matrix->cols, TAG_B, MPI_COMM_WORLD);
 				}
-					
 			}
-			// Odeslání výsledné hodnoty
-			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);
 		}
 		// Posílání prvnímu sloupci mrížky
 		else if((matrix->procID % matrix->cols == 1 && matrix->procID != 1) || matrix->cols == 1){
@@ -269,8 +267,6 @@ int main(int argc, char *argv[])
 
 				}
 			}
-			// Odeslání výsledné hodnoty
-			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);
 		}
 		// Ostatní procesory
 		else
@@ -290,12 +286,10 @@ int main(int argc, char *argv[])
 					MPI_Send(&valB, BUFF_SIZE, MPI_INT, matrix->procID+matrix->cols, TAG_B, MPI_COMM_WORLD);
 				}
 			}
-			// Odeslání výsledné hodnoty
-			MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG, MPI_COMM_WORLD);			
 		}
+		// Odeslání výsledné hodnoty
+		MPI_Send(&matrix->C, BUFF_SIZE, MPI_INT, 0, TAG_DON, MPI_COMM_WORLD);
 	}
-   
-	
 	
 	// Spuštění procesorů
 	free(matrix);
